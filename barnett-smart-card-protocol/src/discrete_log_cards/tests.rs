@@ -5,14 +5,14 @@ mod test {
     use crate::BarnettSmartProtocol;
 
     use ark_ff::UniformRand;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use ark_std::{rand::Rng, Zero};
     use proof_essentials::error::CryptoError;
     use proof_essentials::utils::permutation::Permutation;
     use proof_essentials::utils::rand::sample_vector;
     use rand::thread_rng;
     use std::iter::Iterator;
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-    
+
     // Choose elliptic curve setting
     type Curve = starknet_curve::Projective;
     type Scalar = starknet_curve::Fr;
@@ -102,11 +102,26 @@ mod test {
             })
             .collect::<Vec<_>>();
 
-        let key_proof_info = players
+        let mut key_proof_info = players
             .iter()
             .zip(proofs.iter())
             .map(|(player, &proof)| (player.0, proof.clone(), player.2))
             .collect::<Vec<(PublicKey, _, _)>>();
+
+        let mut data = Vec::with_capacity(key_proof_info.serialized_size());
+        key_proof_info.serialize(&mut data).unwrap();
+        key_proof_info = CanonicalDeserialize::deserialize(data.as_slice()).unwrap();
+
+        key_proof_info = key_proof_info
+            .iter()
+            .map(|vkey_proof_info| {
+                let mut proof = vkey_proof_info.1;
+                let mut data = Vec::with_capacity(proof.serialized_size());
+                proof.serialize(&mut data).unwrap();
+                proof = CanonicalDeserialize::deserialize(data.as_slice()).unwrap();
+                (vkey_proof_info.0, proof.clone(), vkey_proof_info.2)
+            })
+            .collect();
 
         let test_aggregate =
             CardProtocol::compute_aggregate_key(&parameters, &key_proof_info).unwrap();
@@ -194,7 +209,7 @@ mod test {
         let permutation = Permutation::new(rng, m * n);
         let masking_factors: Vec<Scalar> = sample_vector(rng, m * n);
 
-        let (shuffled_deck, shuffle_proof) = CardProtocol::shuffle_and_remask(
+        let (shuffled_deck, mut shuffle_proof) = CardProtocol::shuffle_and_remask(
             rng,
             &parameters,
             &aggregate_key,
@@ -203,6 +218,10 @@ mod test {
             &permutation,
         )
         .unwrap();
+
+        let mut data = Vec::with_capacity(shuffle_proof.serialized_size());
+        shuffle_proof.serialize(&mut data).unwrap();
+        shuffle_proof = CanonicalDeserialize::deserialize(data.as_slice()).unwrap();
 
         assert_eq!(
             Ok(()),

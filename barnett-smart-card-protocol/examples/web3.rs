@@ -1,3 +1,5 @@
+use ark_serialize::CanonicalDeserialize;
+use ark_serialize::CanonicalSerialize;
 use barnett_smart_card_protocol::discrete_log_cards;
 use barnett_smart_card_protocol::BarnettSmartProtocol;
 
@@ -253,10 +255,21 @@ fn main() -> anyhow::Result<()> {
 
     // Smart contract creates initial deck on chain.
     // Also, each player should run this computation and verify offline so that all players agree on the initial deck.
-    let deck_and_proofs: Vec<(MaskedCard, RemaskingProof)> = card_mapping
+    let mut deck_and_proofs: Vec<(MaskedCard, RemaskingProof)> = card_mapping
         .keys()
         .map(|card| CardProtocol::mask(rng, &parameters, &joint_pk, &card, &Scalar::one()))
         .collect::<Result<Vec<_>, _>>()?;
+
+    deck_and_proofs = deck_and_proofs
+        .iter()
+        .map(|deck_and_proofs| {
+            let mut proof = deck_and_proofs.1;
+            let mut data = Vec::with_capacity(proof.serialized_size());
+            proof.serialize(&mut data).unwrap();
+            proof = CanonicalDeserialize::deserialize(data.as_slice()).unwrap();
+            (deck_and_proofs.0, proof.clone())
+        })
+        .collect();
 
     let deck = deck_and_proofs
         .iter()

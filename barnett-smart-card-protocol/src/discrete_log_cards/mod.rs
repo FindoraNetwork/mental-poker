@@ -3,8 +3,8 @@ use super::{Mask, Remask, Reveal};
 
 use crate::error::CardProtocolError;
 use ark_serialize::Read;
-use ark_serialize::Write;
 use ark_serialize::SerializationError;
+use ark_serialize::Write;
 
 use anyhow::Result;
 use ark_ec::{AffineCurve, ProjectiveCurve};
@@ -37,7 +37,6 @@ mod tests;
 pub struct DLCards<'a, C: ProjectiveCurve> {
     _group: &'a PhantomData<C>,
 }
-
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct Parameters<C: ProjectiveCurve> {
